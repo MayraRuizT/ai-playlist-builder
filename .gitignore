@@ -1,0 +1,6 @@
+client_secret.json
+token.pickle
+music_app_key.txt
+*.cache
+.env
+__pycache__/
