@@ -1,41 +1,52 @@
 import os
 import json
 import streamlit as st
-import pickle
-import base64
 from groq import Groq
 from googleapiclient.discovery import build
+from google_auth_oauthlib.flow import Flow
+from google.oauth2.credentials import Credentials
 
 st.set_page_config(page_title="AI YouTube Playlist Builder", page_icon="🎵")
 st.title("🎵 AI YouTube Playlist Builder")
 
-# Cloud-smart Token Loader
-creds = None
+# Cloud Native Google OAuth Config
+CLIENT_CONFIG = {
+    "web": {
+        "client_id": st.secrets["google"]["client_id"],
+        "client_secret": st.secrets["google"]["client_secret"],
+        "auth_uri": "https://google.com",
+        "token_uri": "https://googleapis.com",
+    }
+}
+SCOPES = ['https://googleapis.com']
 
-# 1. First, check if we are on Streamlit Cloud and have the base64 secret key set up
-if "YOUTUBE_TOKEN_BASE64" in st.secrets:
-    try:
-        token_bytes = base64.b64decode(st.secrets["YOUTUBE_TOKEN_BASE64"])
-        creds = pickle.loads(token_bytes)
-    except Exception as e:
-        st.error(f"Failed to decode Cloud YouTube Token: {e}")
-        st.stop()
+# Initialize session state for login credentials
+if "google_creds" not in st.session_state:
+    st.session_state.google_creds = None
 
-# 2. If not on the cloud, check for the local file on your university server
-elif os.path.exists('token.pickle'):
-    with open('token.pickle', 'rb') as token:
-        creds = pickle.load(token)
+# Checking Query Parameters for Login Code from Google
+query_params = st.query_params
+if "code" in query_params and not st.session_state.google_creds:
+    flow = Flow.from_client_config(CLIENT_CONFIG, scopes=SCOPES, redirect_uri=st.secrets["google"]["redirect_uri"])
+    flow.fetch_token(code=query_params["code"])
+    st.session_state.google_creds = flow.credentials
+    # Clear the code from the URL for a cleaner layout look
+    st.query_params.clear()
 
-# 3. If neither exists, stop the app and throw the error
-else:
-    st.error("❌ App Not Authenticated! Please run 'python auth_maker.py' in your terminal session console first to register.")
+# Core Authentication Branch
+if not st.session_state.google_creds:
+    flow = Flow.from_client_config(CLIENT_CONFIG, scopes=SCOPES, redirect_uri=st.secrets["google"]["redirect_uri"])
+    auth_url, _ = flow.authorization_url(prompt='consent')
+    
+    st.markdown("### 🔐 Google Account Authorization Required")
+    st.markdown(f"[🔗 Click here to securely connect your YouTube Account]({auth_url})")
     st.stop()
 
-# Initialize clients seamlessly using our recovered credentials
+# If authenticated, build your service clients seamlessly
 groq_client = Groq()
-youtube_client = build('youtube', 'v3', credentials=creds)
+youtube_client = build('youtube', 'v3', credentials=st.session_state.google_creds)
 
-st.success("🔒 Secured Google/YouTube Engine Connected Successfully!")
+st.success("🔒 Secured Cloud Google/YouTube Engine Connected Successfully!")
 
 
 user_prompt = st.text_input("What kind of playlist do you want to create?", "Make a high energy songs playlist with songs from charli xcx and kim petras")
