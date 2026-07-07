@@ -2,25 +2,41 @@ import os
 import json
 import streamlit as st
 import pickle
+import base64
 from groq import Groq
 from googleapiclient.discovery import build
 
 st.set_page_config(page_title="AI YouTube Playlist Builder", page_icon="🎵")
 st.title("🎵 AI YouTube Playlist Builder")
 
-# Verify token.pickle exists before building interface frames
-if not os.path.exists('token.pickle'):
+# Cloud-smart Token Loader
+creds = None
+
+# 1. First, check if we are on Streamlit Cloud and have the base64 secret key set up
+if "YOUTUBE_TOKEN_BASE64" in st.secrets:
+    try:
+        token_bytes = base64.b64decode(st.secrets["YOUTUBE_TOKEN_BASE64"])
+        creds = pickle.loads(token_bytes)
+    except Exception as e:
+        st.error(f"Failed to decode Cloud YouTube Token: {e}")
+        st.stop()
+
+# 2. If not on the cloud, check for the local file on your university server
+elif os.path.exists('token.pickle'):
+    with open('token.pickle', 'rb') as token:
+        creds = pickle.load(token)
+
+# 3. If neither exists, stop the app and throw the error
+else:
     st.error("❌ App Not Authenticated! Please run 'python auth_maker.py' in your terminal session console first to register.")
     st.stop()
 
-# Initialize clients seamlessly behind the scenes
+# Initialize clients seamlessly using our recovered credentials
 groq_client = Groq()
-
-with open('token.pickle', 'rb') as token:
-    creds = pickle.load(token)
 youtube_client = build('youtube', 'v3', credentials=creds)
 
 st.success("🔒 Secured Google/YouTube Engine Connected Successfully!")
+
 
 user_prompt = st.text_input("What kind of playlist do you want to create?", "Make a high energy songs playlist with songs from charli xcx and kim petras")
 generate_button = st.button("Build Single Playlist Link 🚀")
