@@ -30,6 +30,7 @@ query_params = st.query_params
 if "code" in query_params and not st.session_state.youtube_creds:
     try:
         flow = Flow.from_client_config(CLIENT_CONFIG, scopes=SCOPES, redirect_uri=REDIRECT_URI)
+        flow.code_verifier = st.session_state.get("code_verifier")  # restore PKCE verifier
         flow.fetch_token(code=query_params["code"])
         st.session_state.youtube_creds = flow.credentials
         st.query_params.clear()  # Clean up the browser address bar string
@@ -42,6 +43,7 @@ if "code" in query_params and not st.session_state.youtube_creds:
 if not st.session_state.youtube_creds:
     flow = Flow.from_client_config(CLIENT_CONFIG, scopes=SCOPES, redirect_uri=REDIRECT_URI)
     auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline')
+    st.session_state.code_verifier = flow.code_verifier  # save PKCE verifier for the callback
     
     st.markdown("### 🔐 Google Account Authorization Required")
     st.write("Connect your profile to allow the cloud server to create custom music playlists directly on your account.")
@@ -61,7 +63,7 @@ generate_button = st.button("Build Single Playlist Link 🚀")
 if generate_button:
     with st.spinner("🤖 AI is curating songs..."):
         ai_response = groq_client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="openai/gpt-oss-20b",
             messages=[
                 {
                     "role": "system",
