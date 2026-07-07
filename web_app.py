@@ -35,8 +35,19 @@ if "code" in query_params and not st.session_state.google_creds:
 
 # Core Authentication Branch
 if not st.session_state.google_creds:
-    flow = Flow.from_client_config(CLIENT_CONFIG, scopes=SCOPES, redirect_uri=st.secrets["google"]["redirect_uri"])
-    auth_url, _ = flow.authorization_url(prompt='consent')
+    # This explicit initialization forces the correct browser redirection protocol
+    flow = Flow.from_client_config(
+        CLIENT_CONFIG, 
+        scopes=SCOPES, 
+        redirect_uri=st.secrets["google"]["redirect_uri"]
+    )
+    
+    # Adding access_type='offline' and include_granted_scopes='true' forces the permission popup to appear
+    auth_url, _ = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='true',
+        prompt='consent'
+    )
     
     st.markdown("### 🔐 Google Account Authorization Required")
     st.markdown(f"[🔗 Click here to securely connect your YouTube Account]({auth_url})")
