@@ -10,13 +10,13 @@ st.set_page_config(page_title="AI YouTube Playlist Builder", page_icon="🎵")
 st.title("🎵 AI YouTube Playlist Builder")
 
 # 1. Base API Authentication Configurations
-SCOPES = ['https://googleapis.com']
+SCOPES = ['https://www.googleapis.com/auth/youtube']
 CLIENT_CONFIG = {
     "web": {
         "client_id": st.secrets["google"]["client_id"],
         "client_secret": st.secrets["google"]["client_secret"],
-        "auth_uri": "https://google.com",
-        "token_uri": "https://googleapis.com",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
     }
 }
 REDIRECT_URI = st.secrets["google"]["redirect_uri"]
@@ -108,6 +108,5 @@ if generate_button:
                 ).execute()
 
     st.success("🎉 Playlist build execution complete!")
-    playlist_url = f"https://youtube.com{playlist_id}"
+    playlist_url = f"https://youtube.com/playlist?list={playlist_id}"
     st.markdown(f"### 🔗 [Click here to open the entire playlist directly in YouTube]({playlist_url})")
-
