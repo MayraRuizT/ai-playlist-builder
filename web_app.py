@@ -5,6 +5,8 @@ from groq import Groq
 from googleapiclient.discovery import build
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
+from string import ascii_letters, digits
+from random import SystemRandom
 
 st.set_page_config(page_title="AI YouTube Playlist Builder", page_icon="🎵")
 st.title("🎵 AI YouTube Playlist Builder")
@@ -30,7 +32,9 @@ query_params = st.query_params
 if "code" in query_params and not st.session_state.youtube_creds:
     try:
         flow = Flow.from_client_config(CLIENT_CONFIG, scopes=SCOPES, redirect_uri=REDIRECT_URI)
-        flow.code_verifier = st.session_state.get("code_verifier")  # restore PKCE verifier
+        # The verifier was smuggled back to us in the "state" param by Google itself,
+        # so this does NOT depend on st.session_state surviving the redirect.
+        flow.code_verifier = query_params.get("state")
         flow.fetch_token(code=query_params["code"])
         st.session_state.youtube_creds = flow.credentials
         st.query_params.clear()  # Clean up the browser address bar string
@@ -42,9 +46,16 @@ if "code" in query_params and not st.session_state.youtube_creds:
 # 3. UI Gateway: Lock app until authentication succeeds
 if not st.session_state.youtube_creds:
     flow = Flow.from_client_config(CLIENT_CONFIG, scopes=SCOPES, redirect_uri=REDIRECT_URI)
-    auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline')
-    st.session_state.code_verifier = flow.code_verifier  # save PKCE verifier for the callback
-    
+
+    # Generate our own PKCE verifier up front, then pass it as the "state" value too,
+    # so Google hands it right back to us in the callback URL query params.
+    chars = ascii_letters + digits + "-._~"
+    rnd = SystemRandom()
+    code_verifier = "".join(rnd.choice(chars) for _ in range(64))
+    flow.code_verifier = code_verifier
+
+    auth_url, _ = flow.authorization_url(prompt='consent', access_type='offline', state=code_verifier)
+
     st.markdown("### 🔐 Google Account Authorization Required")
     st.write("Connect your profile to allow the cloud server to create custom music playlists directly on your account.")
     st.markdown(f'### 🔗 [Click here to securely authorize your YouTube Account]({auth_url})')
